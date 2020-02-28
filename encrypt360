@@ -1,0 +1,68 @@
+#! /usr/bin/python3
+
+
+import hashlib
+import sys
+import os
+from Crypto.Cipher import AES
+
+
+arguments = sys.argv
+
+if len(arguments) != 3:
+    print("Usage:  encrypt360 <mode> <filename>")
+    exit(0)
+
+mode, filename = arguments[1],arguments[2]
+
+if mode != 'e':
+   if mode != 'd':
+       print("You must enter e or d for the mode")
+       exit(0)
+
+if not os.path.exists(filename):
+    print("File does not exist!")
+    exit(0)
+
+try:
+    m = hashlib.sha256()
+    passphrase = input("Please enter a passphrase: ")
+    passphrase = passphrase.encode() #turns a string into a byte string
+    m.update(passphrase)
+    digest = m.digest() #this "digest" is the hash
+    key = digest[:16]  # The first 16 bytes of the 32 byte hash are the key
+    IV = digest[16:]   # The last 16 bytes of the 32 byte hash are the IV
+    obj = AES.new(key, AES.MODE_CBC,IV)
+
+    ciphertext_name = filename+".enc"
+
+    if mode == 'e':
+## Open and read in the plaintext
+        fp = open(filename,"r")
+        plaintext = fp.read()
+        fp.close()
+        BS = 16
+        pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
+        plaintext = pad(plaintext).encode()   ## Pad the plaintext
+        ct = obj.encrypt(plaintext)  ## Encrypt the plaintext
+## Write the ciphertext to a file
+        fp = open(ciphertext_name,"wb")
+        fp.write(ct)   ### Write the ciphertext to the fte.enc file
+        fp.close()
+
+## Open the ciphertext for decryption
+    if mode == 'd':
+        fp = open(ciphertext_name,"rb")
+        obj = AES.new(key, AES.MODE_CBC,IV)
+        ct = fp.read()    ## Read the file
+        fp.close()
+        unpad = lambda s : s[0:-ord(s[-1])]
+        pt = obj.decrypt(ct)   ## Decrypt the ciphertext
+        pt = unpad(pt.decode())   ## Unpad the message
+        decryptedtext_name = filename+".dec"
+        x = open(decryptedtext_name, "w")
+        x.write(pt)
+        x.close()
+
+except:
+    print("Decryption failed.  Was the passphrase correct?")
